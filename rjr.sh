@@ -1,45 +1,31 @@
 #!/bin/bash
-DIST_DIR="./rjr_temp_dir"
-CLASSPATH=""
 
-args=""
+DIST_DIR="./rjr_temp_dir"
+
+
 skip=false
 for i in $(seq 1 $(($# - 1))); do
-    if $skip; then
-        skip=false
-        continue
-    fi
-    if [[ "${!i}" == "-cp" ]] && [ -z "$CLASSPATH"  ]; then
+    [ $skip = true ] && skip=false && continue 
+    if [[ "${!i}" == "-cp" && -z "$classpath"  ]]; then
         next_index=$((i + 1))
-        CLASSPATH=${!next_index}
+        classpath=${!next_index}
     fi
-
-    if [[ "${!i}" != "-d" ]]; then
-        args="$args ${!i}"
-    else
-        skip=true    
-    fi
+    [[ "${!i}" != "-d" ]] && args="$args ${!i}" || skip=true    
 done
 
-args="$args -d $DIST_DIR ${!#}"
+[[ -z "$classpath"  && -n "$CLASSPATH" ]] && classpath=$CLASSPATH
 
-if [ -d "$DIST_DIR" ]; then
-    rm -rf "$DIST_DIR"
-fi
+args="$args -d $DIST_DIR ${!#}"
+[ -d "$DIST_DIR" ] && rm -rf "$DIST_DIR"
 mkdir "$DIST_DIR"
 
 file_name=$(basename ${!#})
-class_name=$(echo "$file_name" | sed 's/\.[^.]*$//')
+resolved_class=$(echo "$file_name" | sed 's/\.[^.]*$//')
 resolved_package=$(grep -m 1 '^package' ${!#} | sed 's/package //; s/;//')
+[ -n "$resolved_package" ] && resolved_class="$resolved_package.$resolved_class"
 
-if [[ -z "$resolved_package" ]]; then
-    resolved_class=$class_name
-else
-    resolved_class="$resolved_package.$class_name"
-fi
+[ -n $JAVA_HOME ] && javac="$JAVA_HOME/bin/javac"; java="$JAVA_HOME/bin/java"
 
-/lib/jvm/jdk-21-oracle-x64/bin/javac $args
-
-/lib/jvm/jdk-21-oracle-x64/bin/java -cp "$CLASSPATH:$DIST_DIR" $resolved_class 
+$javac $args && $java -cp "$classpath:$DIST_DIR" $resolved_class
 
 rm -rf "$DIST_DIR"
